@@ -1,0 +1,7 @@
+*.o
+*.exe
+*.app
+stage9
+old
+*.iconset
+*.icns
