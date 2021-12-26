@@ -280,14 +280,18 @@ void StageWindow::OpenMap(std::string fname) {
     std::string tscfn = fname.substr(0, fname.find_last_of('.')) + ".tsc";
     std::string txtfn = fname.substr(0, fname.find_last_of('.')) + ".txt";
     file = fopen(tscfn.c_str(), "rb");
-    if(!file) file = fopen(txtfn.c_str(), "rb");
-    if(!file) {
+    if(file) tsc_fname = tscfn;
+    else file = fopen(txtfn.c_str(), "rb");
+    if(file) tsc_fname = txtfn;
+    else {
         size_t dirpos = tscfn.find("/Stage/");
         if(dirpos != std::string::npos) {
             std::string tscfn2 = tscfn.replace(dirpos, 7, "/tsc/");
             std::string txtfn2 = txtfn.replace(dirpos, 7, "/tsc/");
             file = fopen(tscfn2.c_str(), "rb");
-            if (!file) file = fopen(txtfn2.c_str(), "rb");
+            if(file) tsc_fname = tscfn2;
+            else file = fopen(txtfn2.c_str(), "rb");
+            if(file) tsc_fname = txtfn2;
         }
     }
     if(file) {
@@ -368,107 +372,107 @@ void StageWindow::SaveTileset() {
 void StageWindow::Render() {
     ImGuiIO& io = ImGui::GetIO();
 
-    ImGui::Begin("MapFile");
+    ImGui::BeginMainMenuBar();
     {
-        if(ImGui::Button("New")) {
-            ImGui::OpenPopup("New Map");
-        }
-        if(ImGui::BeginPopup("New Map")) {
-            ImGui::Text("Unsaved changes will be lost. Are you sure?");
-            if(ImGui::Button("Clear Map")) {
-                selectedEntity = -1;
-                pxm_fname = "untitled.pxm";
-                pxe_fname = "untitled.pxe";
-                tsc_fname = "untitled.tsc";
-                pxm.Resize(20, 15);
-                pxm.Clear();
-                pxe.Resize(1);
-                pxe.Clear();
-                tsc_text[0] = 0;
-                ImGui::CloseCurrentPopup();
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New Map")) {
+                ImGui::OpenPopup("New Map");
             }
-            ImGui::SameLine();
-            if(ImGui::Button("Cancel")) {
-                ImGui::CloseCurrentPopup();
+            if (ImGui::MenuItem("Open Map...")) {
+                ImGuiFileDialog::Instance()->OpenDialog("OpenMapFile", "Open Map File", ".pxm", ".");
             }
-            ImGui::EndPopup();
-        }
-        ImGui::SameLine();
-        if(ImGui::Button("Open")) {
-            ImGuiFileDialog::Instance()->OpenDialog("OpenMapFile", "Choose Map File", ".pxm", ".");
-        }
-        if(ImGuiFileDialog::Instance()->Display("OpenMapFile")) {
-            if(ImGuiFileDialog::Instance()->IsOk()) {
-                OpenMap(ImGuiFileDialog::Instance()->GetFilePathName());
-                ImGuiFileDialog::Instance()->Close();
-            }
-        }
-        ImGui::SameLine();
-        if(ImGui::Button("Save")) {
-            SaveMap();
-        }
-        ImGui::SameLine();
-        if(ImGui::Button("SaveAs")) {
-            ImGuiFileDialog::Instance()->OpenDialog("SaveMapFile", "Save Map File", ".pxm", ".");
-        }
-        if(ImGuiFileDialog::Instance()->Display("SaveMapFile")) {
-            if(ImGuiFileDialog::Instance()->IsOk()) {
-                pxm_fname = ImGuiFileDialog::Instance()->GetFilePathName();
-                pxa_fname = pxm_fname.substr(0, pxm_fname.find_last_of('.')) + ".pxe";
+            if (ImGui::MenuItem("Save Map")) {
                 SaveMap();
-                ImGuiFileDialog::Instance()->Close();
             }
+            if (ImGui::MenuItem("Save Map As...")) {
+                ImGuiFileDialog::Instance()->OpenDialog("SaveMapFile", "Save Map File", ".pxm", ".");
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("New Tileset")) {
+                ImGui::OpenPopup("New Tileset");
+            }
+            if (ImGui::MenuItem("Open Tileset")) {
+                ImGuiFileDialog::Instance()->OpenDialog("OpenTilesetFile", "Open Tileset Image", ".bmp,.png", ".");
+            }
+            if (ImGui::MenuItem("Save Tile Attributes")) {
+                SaveTileset();
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Exit")) {
+                exit(0);
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Edit")) {
+            ImGui::Separator();
+            ImGui::RadioButton("Insert Mode", &editMode, EDIT_PENCIL);
+            ImGui::RadioButton("Erase Mode", &editMode, EDIT_ERASER);
+            ImGui::RadioButton("Entity Mode", &editMode, EDIT_ENTITY);
+            ImGui::EndMenu();
         }
     }
-    ImGui::End();
-    ImGui::Begin("MapEdit");
-    {
-        ImGui::RadioButton("Pencil", &editMode, EDIT_PENCIL);
+    ImGui::EndMainMenuBar();
+
+    if (ImGui::BeginPopup("New Map")) {
+        ImGui::Text("Unsaved changes will be lost. Are you sure?");
+        if (ImGui::Button("Discard Changes")) {
+            selectedEntity = -1;
+            pxm_fname = "untitled.pxm";
+            pxe_fname = "untitled.pxe";
+            tsc_fname = "untitled.tsc";
+            pxm.Resize(20, 15);
+            pxm.Clear();
+            pxe.Resize(1);
+            pxe.Clear();
+            tsc_text[0] = 0;
+            ImGui::CloseCurrentPopup();
+        }
         ImGui::SameLine();
-        ImGui::RadioButton("Eraser", &editMode, EDIT_ERASER);
-        ImGui::SameLine();
-        ImGui::RadioButton("Entity", &editMode, EDIT_ENTITY);
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
     }
-    ImGui::End();
-    ImGui::Begin("TilesetFile");
-    {
-        if(ImGui::Button("New")) {
-            ImGui::OpenPopup("New Tileset");
-        }
-        if(ImGui::BeginPopup("New Tileset")) {
-            ImGui::Text("Unsaved changes will be lost. Are you sure?");
-            if(ImGui::Button("Clear Tileset")) {
-                selectedTile = 0;
-                tileset_image = 0;
-                tileset_width = 0;
-                tileset_height = 0;
-                tileset_fname = "untitled.png";
-                pxa_fname = "untitled.pxa";
-                memset(pxa, 0, PXA_MAX);
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::SameLine();
-            if(ImGui::Button("Cancel")) {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-        ImGui::SameLine();
-        if(ImGui::Button("Open")) {
-            ImGuiFileDialog::Instance()->OpenDialog("OpenTilesetFile", "Choose Tileset Image", ".bmp,.png", ".");
-        }
-        if(ImGuiFileDialog::Instance()->Display("OpenTilesetFile")) {
-            if(ImGuiFileDialog::Instance()->IsOk()) {
-                OpenTileset(ImGuiFileDialog::Instance()->GetFilePathName());
-                ImGuiFileDialog::Instance()->Close();
-            }
-        }
-        ImGui::SameLine();
-        if(ImGui::Button("Save PXA")) {
-            SaveTileset();
+    if (ImGuiFileDialog::Instance()->Display("OpenMapFile")) {
+        if (ImGuiFileDialog::Instance()->IsOk()) {
+            OpenMap(ImGuiFileDialog::Instance()->GetFilePathName());
+            ImGuiFileDialog::Instance()->Close();
         }
     }
-    ImGui::End();
+    if (ImGuiFileDialog::Instance()->Display("SaveMapFile")) {
+        if (ImGuiFileDialog::Instance()->IsOk()) {
+            pxm_fname = ImGuiFileDialog::Instance()->GetFilePathName();
+            pxa_fname = pxm_fname.substr(0, pxm_fname.find_last_of('.')) + ".pxe";
+            SaveMap();
+            ImGuiFileDialog::Instance()->Close();
+        }
+    }
+    if (ImGui::BeginPopup("New Tileset")) {
+        ImGui::Text("Unsaved changes will be lost. Are you sure?");
+        if (ImGui::Button("Discard Changes")) {
+            selectedTile = 0;
+            tileset_image = 0;
+            tileset_width = 0;
+            tileset_height = 0;
+            tileset_fname = "untitled.png";
+            pxa_fname = "untitled.pxa";
+            memset(pxa, 0, PXA_MAX);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    if (ImGuiFileDialog::Instance()->Display("OpenTilesetFile")) {
+        if (ImGuiFileDialog::Instance()->IsOk()) {
+            OpenTileset(ImGuiFileDialog::Instance()->GetFilePathName());
+            ImGuiFileDialog::Instance()->Close();
+        }
+    }
+
+    ImGui::DockSpaceOverViewport();
 
     int map_mouse_x, map_mouse_y, map_tile_x, map_tile_y; // Need to remember for status window
     ImGui::Begin("Map");
@@ -546,6 +550,22 @@ void StageWindow::Render() {
     }
     ImGui::End();
 
+    ImGui::Begin("Entity List");
+    {
+        if(ImGui::BeginListBox("EntityList", ImGui::GetContentRegionAvail())) {
+            for(int i = 0; i < pxe.Size(); i++) {
+                Entity e = pxe.GetEntity(i);
+                char text[120];
+                snprintf(text, 120, "%d: (%03hu, %03hu) %04hu, %04hu, %03hu", i, e.x, e.y, e.id, e.event, e.type);
+                if(ImGui::Selectable(text, selectedEntity == i)) {
+                    selectedEntity = i;
+                }
+            }
+            ImGui::EndListBox();
+        }
+    }
+    ImGui::End();
+
     int ts_mouse_x, ts_mouse_y, ts_tile_x, ts_tile_y; // Need to remember for status window
     ImGui::Begin("Tileset");
     {
@@ -553,6 +573,10 @@ void StageWindow::Render() {
         ts_mouse_y = io.MousePos.y - ImGui::GetWindowPos().y - ImGui::GetCursorPos().y + ImGui::GetScrollY() - 2;
         ts_tile_x = ts_mouse_x / (16 * map_zoom);
         ts_tile_y = ts_mouse_y / (16 * map_zoom);
+        // Fix "negative zero"
+        if(ts_tile_x < 0) ts_tile_x -= 1;
+        if(ts_tile_y < 0) ts_tile_y -= 1;
+
         SetTilesetFB();
         {
             glViewport(0, 0, 256, 128);
@@ -597,44 +621,81 @@ void StageWindow::Render() {
         }
         SetDefaultFB();
         ImGui::Image((ImTextureID) tileset_tex, ImVec2(512, 256), ImVec2(0, 1), ImVec2(1, 0));
+        // Tile attributes
+        if(ImGui::CollapsingHeader("Tile Attributes")) {
+            uint8_t attr = pxa[selectedTile];
+            bool attr_flag[4];
+            for(int i = 0; i < 4; i++) {
+                attr_flag[i] = (attr >> (4 + i)) & 1;
+            }
+            if(ImGui::BeginTable("AttrFlags", 4)) {
+                ImGui::TableNextColumn(); ImGui::Checkbox("Slope", &attr_flag[0]);
+                ImGui::TableNextColumn(); ImGui::Checkbox("Water", &attr_flag[1]);
+                ImGui::TableNextColumn(); ImGui::Checkbox("Fore", &attr_flag[2]);
+                ImGui::TableNextColumn(); ImGui::Checkbox("Wind", &attr_flag[3]);
+                ImGui::EndTable();
+            }
+            if(attr_flag[3]) {
+                int dir = attr & 3;
+                if(ImGui::BeginTable("AttrWind", 4)) {
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Left", &dir, 0);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Up", &dir, 1);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Right", &dir, 2);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Down", &dir, 3);
+                    ImGui::EndTable();
+                }
+            } else if(attr_flag[0]) {
+                int dir = attr & 7;
+                if(ImGui::BeginTable("AttrSlope", 2)) {
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Left High", &dir, 0);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Left Low", &dir, 1);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Right Low", &dir, 2);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Right High", &dir, 3);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Floor Left High", &dir, 4);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Floor Left Low", &dir, 5);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Floor Right Low", &dir, 6);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Floor Right High", &dir, 7);
+                    ImGui::EndTable();
+                }
+            } else {
+                int val = attr & 7;
+                if(ImGui::BeginTable("AttrVal", 2)) {
+                    ImGui::TableNextColumn(); ImGui::RadioButton("N/A", &val, 0);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Solid", &val, 1);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Damage", &val, 2);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Breakable", &val, 3);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("NPC Solid", &val, 4);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Bullet Pass", &val, 5);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("Player Solid", &val, 6);
+                    ImGui::TableNextColumn(); ImGui::RadioButton("N/A", &val, 7);
+                    ImGui::EndTable();
+                }
+            }
+        }
     }
     ImGui::End();
 
-    ImGui::Begin("Status");
+    ImGui::Begin("Entity");
     {
-        size_t subpos = pxm_fname.find_last_of('/');
-        if(subpos) subpos++;
-        ImGui::Text("%s", pxm_fname.substr(subpos).c_str());
-        ImGui::SameLine();
-        if(map_tile_x >= 0 && map_tile_x < pxm.Width() && map_tile_y >= 0 && map_tile_y < pxm.Height()) {
-            ImGui::Text("[%03d, %03d]", map_tile_x, map_tile_y);
-        } else {
-            ImGui::Text("[---, ---]");
-        }
-        ImGui::SameLine();
-        ImGui::Text("/ (%03hu, %03hu) - ", pxm.Width(), pxm.Height());
-        ImGui::SameLine();
-        if(editMode == EDIT_ENTITY && selectedEntity >= 0) {
-            ImGui::Text("[%03d] / %03hu entities", selectedEntity, pxe.Size());
-        } else {
-            ImGui::Text("[---] / %03hu entities", pxe.Size());
-        }
-
-    }
-    ImGui::End();
-
-    ImGui::Begin("Info");
-    {
-        if(editMode == EDIT_ENTITY) {
-            if(selectedEntity >= 0) {
-                Entity e = pxe.GetEntity(selectedEntity);
-                ImGui::Text("X: %03hu Y: %03hu ID: %04hu EV: %04hu NPC: %04hu", e.x, e.y, e.id, e.event, e.type);
-                if(ImGui::CollapsingHeader("Entity Flags")) {
-                    bool flags[16];
-                    for(int i = 0; i < 16; i++) {
-                        flags[i] = (e.flags >> i) & 1;
-                    }
-                    ImGui::BeginTable("Flags", 2);
+        if(/*editMode == EDIT_ENTITY && */selectedEntity >= 0) {
+            Entity e = pxe.GetEntity(selectedEntity);
+            int x = e.x, y = e.y, id = e.id, ev = e.event, npc = e.type;
+            ImGui::InputInt("X", &x, 1, 10);
+            ImGui::InputInt("Y", &y, 1, 10);
+            ImGui::InputInt("ID", &id, 1, 10);
+            ImGui::InputInt("EV", &ev, 1, 10);
+            ImGui::InputInt("NPC", &npc, 1, 10);
+            e.x = std::clamp(x, 0, pxm.Width() - 1);
+            e.y = std::clamp(y, 0, pxm.Height() - 1);
+            e.id = std::clamp(id, 0, 9999);
+            e.event = std::clamp(ev, 0, 9999);
+            e.type = std::clamp(npc, 0, 361);
+            if(ImGui::CollapsingHeader("Entity Flags")) {
+                bool flags[16];
+                for(int i = 0; i < 16; i++) {
+                    flags[i] = (e.flags >> i) & 1;
+                }
+                if(ImGui::BeginTable("Flags", 2)) {
                     ImGui::TableNextColumn(); ImGui::Checkbox("Solid (Mushy)",          &flags[0]);
                     ImGui::TableNextColumn(); ImGui::Checkbox("Ignore NPC Solid Tiles", &flags[1]);
                     ImGui::TableNextColumn(); ImGui::Checkbox("Invulnerable",           &flags[2]);
@@ -653,74 +714,91 @@ void StageWindow::Render() {
                     ImGui::TableNextColumn(); ImGui::Checkbox("Show Damage",            &flags[15]);
                     ImGui::EndTable();
                 }
-                if(ImGui::CollapsingHeader("Script Preview")) {
-                    char look_for[8];
-                    snprintf(look_for, 8, "#%04hu", pxe.GetEntity(selectedEntity).event);
-                    std::string tsc = tsc_text;
-                    size_t pos = tsc.find(look_for);
-                    if(pos != std::string::npos && (pos == 0 || (pos > 0 && tsc[pos-1] == '\n'))) {
-                        char tsc_cut[1024];
-                        int i = 0;
-                        for(; i < 1023; i++) {
-                            if(pos >= tsc.length()) break;
-                            if(tsc[pos] == '#' && i > 0 && tsc[pos-1] == '\n') break;
-                            if(tsc[pos] == '\n' && i > 0 && tsc[pos-1] == '\n') break;
-                            tsc_cut[i] = tsc[pos++];
-                        }
-                        tsc_cut[i] = 0;
-                        ImGui::Text("%s", tsc_cut);
-                    }
-                    //ImGui::InputTextMultiline("", tsc_text, TSC_MAX);
+                e.flags = 0;
+                for(int i = 0; i < 16; i++) {
+                    if(flags[i]) e.flags |=  1 << i;
                 }
             }
-        } else if(tileset_tex) {
-            uint8_t attr = pxa[selectedTile];
-            bool attr_flag[4];
-            for(int i = 0; i < 4; i++) {
-                attr_flag[i] = (attr >> (4 + i)) & 1;
-            }
-            ImGui::BeginTable("AttrFlags", 4);
-            ImGui::TableNextColumn(); ImGui::Checkbox("Slope", &attr_flag[0]);
-            ImGui::TableNextColumn(); ImGui::Checkbox("Water", &attr_flag[1]);
-            ImGui::TableNextColumn(); ImGui::Checkbox("Fore", &attr_flag[2]);
-            ImGui::TableNextColumn(); ImGui::Checkbox("Wind", &attr_flag[3]);
-            ImGui::EndTable();
-            if(attr_flag[3]) {
-                int dir = attr & 3;
-                ImGui::BeginTable("AttrWind", 4);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Left", &dir, 0);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Up", &dir, 1);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Right", &dir, 2);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Down", &dir, 3);
-                ImGui::EndTable();
-            } else if(attr_flag[0]) {
-                int dir = attr & 7;
-                ImGui::BeginTable("AttrSlope", 2);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Floor Left Low", &dir, 0);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Floor Left High", &dir, 1);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Floor Right Low", &dir, 2);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Floor Right High", &dir, 3);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Left Low", &dir, 4);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Left High", &dir, 5);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Right Low", &dir, 6);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Ceiling Right High", &dir, 7);
-                ImGui::EndTable();
-            } else {
-                int val = attr & 7;
-                ImGui::BeginTable("AttrVal", 2);
-                ImGui::TableNextColumn(); ImGui::RadioButton("N/A", &val, 0);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Solid", &val, 1);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Damage", &val, 2);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Breakable", &val, 3);
-                ImGui::TableNextColumn(); ImGui::RadioButton("NPC Solid", &val, 4);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Bullet Pass", &val, 5);
-                ImGui::TableNextColumn(); ImGui::RadioButton("Player Solid", &val, 6);
-                ImGui::TableNextColumn(); ImGui::RadioButton("N/A", &val, 7);
-                ImGui::EndTable();
+            pxe.SetEntity(selectedEntity, e);
+            if(ImGui::CollapsingHeader("Script Preview")) {
+                char look_for[8];
+                snprintf(look_for, 8, "#%04hu", pxe.GetEntity(selectedEntity).event);
+                std::string tsc = tsc_text;
+                size_t pos = tsc.find(look_for);
+                if(pos != std::string::npos && (pos == 0 || (pos > 0 && tsc[pos-1] == '\n'))) {
+                    char tsc_cut[1024];
+                    int i = 0;
+                    for(; i < 1023; i++) {
+                        if(pos >= tsc.length()) break;
+                        if(tsc[pos] == '#' && i > 0 && tsc[pos-1] == '\n') break;
+                        if(tsc[pos] == '\n' && i > 0 && tsc[pos-1] == '\n') break;
+                        tsc_cut[i] = tsc[pos++];
+                    }
+                    tsc_cut[i] = 0;
+                    ImGui::Text("%s", tsc_cut);
+                }
             }
         } else {
-            ImGui::Text("N/A");
+            ImGui::Text("No entity selected.");
         }
+    }
+    ImGui::End();
+
+    ImGui::Begin("Script");
+    {
+        if(tsc_text[0]) {
+            ImGui::InputTextMultiline("##ScriptEdit", tsc_text, TSC_MAX, ImGui::GetContentRegionAvail());
+        }
+    }
+    ImGui::End();
+
+    ImGuiWindowClass winclass;
+    winclass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_AutoHideTabBar;
+    ImGui::SetNextWindowClass(&winclass);
+    ImGui::Begin("Status");
+    {
+        // PXM
+        size_t subpos = pxm_fname.find_last_of('/');
+        if(subpos) subpos++;
+        ImGui::Text("%s", pxm_fname.substr(subpos).c_str());
+        ImGui::SameLine();
+        if(map_tile_x >= 0 && map_tile_x < pxm.Width() && map_tile_y >= 0 && map_tile_y < pxm.Height()) {
+            ImGui::Text("[%03d, %03d]", map_tile_x, map_tile_y);
+        } else {
+            ImGui::Text("[---, ---]");
+        }
+        ImGui::SameLine();
+        ImGui::Text("/ (%03hu, %03hu) -", pxm.Width(), pxm.Height());
+        ImGui::SameLine();
+        // PXE
+        subpos = pxe_fname.find_last_of('/');
+        if(subpos) subpos++;
+        ImGui::Text("%s", pxe_fname.substr(subpos).c_str());
+        ImGui::SameLine();
+        if(/*editMode == EDIT_ENTITY && */selectedEntity >= 0) {
+            ImGui::Text("[%03d] / %03hu -", selectedEntity, pxe.Size());
+        } else {
+            ImGui::Text("[---] / %03hu -", pxe.Size());
+        }
+        ImGui::SameLine();
+        // TSC
+        subpos = tsc_fname.find_last_of('/');
+        if(subpos) subpos++;
+        ImGui::Text("%s", tsc_fname.substr(subpos).c_str());
+        ImGui::SameLine();
+        ImGui::Text("-");
+        ImGui::SameLine();
+        // Tileset
+        subpos = tileset_fname.find_last_of('/');
+        if(subpos) subpos++;
+        ImGui::Text("%s", tileset_fname.substr(subpos).c_str());
+        ImGui::SameLine();
+        ImGui::Text("-");
+        ImGui::SameLine();
+        // PXA
+        subpos = pxa_fname.find_last_of('/');
+        if(subpos) subpos++;
+        ImGui::Text("%s", pxa_fname.substr(subpos).c_str());
     }
     ImGui::End();
 }

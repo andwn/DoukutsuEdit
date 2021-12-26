@@ -5,3 +5,4 @@ stage9
 old
 *.iconset
 *.icns
+.DS_Store
