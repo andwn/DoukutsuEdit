@@ -550,7 +550,7 @@ void StageWindow::Render() {
     }
     ImGui::End();
 
-    ImGui::Begin("Entity List");
+    ImGui::Begin("Entity List", NULL, ImGuiWindowFlags_NoFocusOnAppearing);
     {
         if(ImGui::BeginListBox("EntityList", ImGui::GetContentRegionAvail())) {
             for(int i = 0; i < pxe.Size(); i++) {
@@ -675,7 +675,7 @@ void StageWindow::Render() {
     }
     ImGui::End();
 
-    ImGui::Begin("Entity");
+    ImGui::Begin("Entity", NULL, ImGuiWindowFlags_NoFocusOnAppearing);
     {
         if(/*editMode == EDIT_ENTITY && */selectedEntity >= 0) {
             Entity e = pxe.GetEntity(selectedEntity);
@@ -744,7 +744,7 @@ void StageWindow::Render() {
     }
     ImGui::End();
 
-    ImGui::Begin("Script");
+    ImGui::Begin("Script", NULL, ImGuiWindowFlags_NoFocusOnAppearing);
     {
         if(tsc_text[0]) {
             ImGui::InputTextMultiline("##ScriptEdit", tsc_text, TSC_MAX, ImGui::GetContentRegionAvail());

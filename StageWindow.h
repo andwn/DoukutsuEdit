@@ -66,8 +66,6 @@ private:
     void OpenTileset(std::string fname);
     void SaveTileset();
 
-    // Status Bar
-
     // Shader and VAO
     uint32_t vao;
     uint32_t vbo;

@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>Stage9</string>
+	<string>DoukutsuEdit</string>
 	<key>CFBundleIconFile</key>
-	<string>Stage9</string>
+	<string>DoukutsuEdit</string>
 	<key>CFBundleIdentifier</key>
-	<string>zone.skychase.stage9</string>
+	<string>zone.skychase.doukutsuedit</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Stage9</string>
+	<string>DoukutsuEdit</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
@@ -21,6 +21,6 @@
 	<key>CFBundleVersion</key>
 	<string>1.0.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>Stage9</string>
+	<string>DoukutsuEdit</string>
 </dict>
 </plist>

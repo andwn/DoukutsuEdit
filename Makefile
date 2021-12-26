@@ -1,4 +1,4 @@
-TARGET ?= stage9
+TARGET ?= DoukutsuEdit
 APP     = $(TARGET)
 
 CC   ?= cc
