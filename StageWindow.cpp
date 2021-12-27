@@ -5,6 +5,7 @@
 #include "imgui/stb_image.h"
 #include "glad.h"
 
+#include "Preferences.h"
 #include "StageWindow.h"
 
 static void chkerr(int line) {
@@ -132,7 +133,7 @@ StageWindow::StageWindow() {
     tsc_fname = "untitled.tsc";
     tileset_fname = "untitled.png";
     pxa_fname = "untitled.pxa";
-    map_zoom = 2.0f;
+    map_zoom = 2;
     lastMapW = lastMapH = 0;
     map_fb = tileset_fb = 0;
     clickingMapX = clickingMapY = 0;
@@ -156,6 +157,10 @@ StageWindow::StageWindow() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
     chkerr(__LINE__);
     InitShaders();
+
+    Preferences &pref = Preferences::Instance();
+    if(pref.recentPXM[0].length() > 0) OpenMap(pref.recentPXM[0]);
+    if(pref.recentTS[0].length() > 0) OpenTileset(pref.recentTS[0]);
 }
 
 StageWindow::~StageWindow() {
@@ -223,11 +228,11 @@ void StageWindow::SetDefaultFB() {
     glBindFramebuffer(GL_FRAMEBUFFER, NULL);
 }
 
-void StageWindow::SetMapFB() {
+void StageWindow::SetMapFB() const {
     glBindFramebuffer(GL_FRAMEBUFFER, map_fb);
 }
 
-void StageWindow::SetTilesetFB() {
+void StageWindow::SetTilesetFB() const {
     glBindFramebuffer(GL_FRAMEBUFFER, tileset_fb);
 }
 
@@ -369,17 +374,33 @@ void StageWindow::SaveTileset() {
     }
 }
 
-void StageWindow::Render() {
+bool StageWindow::Render() {
     ImGuiIO& io = ImGui::GetIO();
+    Preferences &pref = Preferences::Instance();
 
+    bool menuExit = false;
+    bool popupNewMap = false, popupNewTileset = false, popupPreferences = false;
     ImGui::BeginMainMenuBar();
     {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New Map")) {
-                ImGui::OpenPopup("New Map");
+                popupNewMap = true;
             }
             if (ImGui::MenuItem("Open Map...")) {
                 ImGuiFileDialog::Instance()->OpenDialog("OpenMapFile", "Open Map File", ".pxm", ".");
+            }
+            if (ImGui::BeginMenu("Open Recent Map")) {
+                for (auto & i : pref.recentPXM) {
+                    if (i.empty()) break;
+                    if (ImGui::MenuItem(i.c_str())) {
+                        OpenMap(i);
+                    }
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Clear List")) {
+                    for (auto & i : pref.recentPXM) i = "";
+                }
+                ImGui::EndMenu();
             }
             if (ImGui::MenuItem("Save Map")) {
                 SaveMap();
@@ -389,17 +410,34 @@ void StageWindow::Render() {
             }
             ImGui::Separator();
             if (ImGui::MenuItem("New Tileset")) {
-                ImGui::OpenPopup("New Tileset");
+                popupNewTileset = true;
             }
             if (ImGui::MenuItem("Open Tileset")) {
                 ImGuiFileDialog::Instance()->OpenDialog("OpenTilesetFile", "Open Tileset Image", ".bmp,.png", ".");
+            }
+            if (ImGui::BeginMenu("Open Recent Tileset")) {
+                for(auto & i : pref.recentTS) {
+                    if(i.empty()) break;
+                    if(ImGui::MenuItem(i.c_str())) {
+                        OpenTileset(i);
+                    }
+                }
+                ImGui::Separator();
+                if(ImGui::MenuItem("Clear List")) {
+                    for(auto & i : pref.recentTS) i = "";
+                }
+                ImGui::EndMenu();
             }
             if (ImGui::MenuItem("Save Tile Attributes")) {
                 SaveTileset();
             }
             ImGui::Separator();
+            if (ImGui::MenuItem("Preferences")) {
+                popupPreferences = true;
+            }
+            ImGui::Separator();
             if (ImGui::MenuItem("Exit")) {
-                exit(0);
+                menuExit = true;
             }
             ImGui::EndMenu();
         }
@@ -412,6 +450,10 @@ void StageWindow::Render() {
         }
     }
     ImGui::EndMainMenuBar();
+    // Workaround for https://github.com/ocornut/imgui/issues/331
+    if (popupNewMap) ImGui::OpenPopup("New Map");
+    if (popupNewTileset) ImGui::OpenPopup("New Tileset");
+    if (popupPreferences) ImGui::OpenPopup("Preferences");
 
     if (ImGui::BeginPopup("New Map")) {
         ImGui::Text("Unsaved changes will be lost. Are you sure?");
@@ -472,6 +514,25 @@ void StageWindow::Render() {
         }
     }
 
+    if (ImGui::BeginPopup("Preferences")) {
+        ImGui::Checkbox("Automatically load PXE when opening PXM", &pref.autoPXE);
+        ImGui::Checkbox("Automatically load TSC when opening PXM", &pref.autoTSC);
+        ImGui::Checkbox("Automatically load PXA when opening a tileset image", &pref.autoPXA);
+        if (ImGui::Button("Apply")) {
+            pref.Save();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reset To Default")) {
+            pref.ResetToDefault();
+        }
+        ImGui::EndPopup();
+    }
+
     ImGui::DockSpaceOverViewport();
 
     int map_mouse_x, map_mouse_y, map_tile_x, map_tile_y; // Need to remember for status window
@@ -485,8 +546,8 @@ void StageWindow::Render() {
             lastMapW = pxm.Width();
             lastMapH = pxm.Height();
         }
-        map_mouse_x = io.MousePos.x - ImGui::GetWindowPos().x - ImGui::GetCursorPos().x + ImGui::GetScrollX() - 2;
-        map_mouse_y = io.MousePos.y - ImGui::GetWindowPos().y - ImGui::GetCursorPos().y + ImGui::GetScrollY() - 2;
+        map_mouse_x = int(io.MousePos.x - ImGui::GetWindowPos().x - ImGui::GetCursorPos().x + ImGui::GetScrollX() - 2);
+        map_mouse_y = int(io.MousePos.y - ImGui::GetWindowPos().y - ImGui::GetCursorPos().y + ImGui::GetScrollY() - 2);
         map_tile_x = map_mouse_x / (16 * map_zoom);
         map_tile_y = map_mouse_y / (16 * map_zoom);
         // Fix "negative zero"
@@ -517,13 +578,13 @@ void StageWindow::Render() {
                 glBindTexture(GL_TEXTURE_2D, white_tex);
                 for (int i = 0; i < pxe.Size(); i++) {
                     Entity e = pxe.GetEntity(i);
-                    DrawRect(e.x * 16, e.y * 16, 16, 16, 0x7700FF00);
+                    DrawRect(float(e.x) * 16, float(e.y) * 16, 16, 16, 0x7700FF00);
                 }
             }
             if(ImGui::IsWindowFocused() && map_tile_x >= 0 && map_tile_x < pxm.Width() && map_tile_y >= 0 && map_tile_y < pxm.Height()) {
                 glBindTexture(GL_TEXTURE_2D, white_tex);
                 uint32_t col = editMode == EDIT_ERASER ? 0x77AAAAFF : 0x77FFCC77;
-                DrawRect(map_tile_x * 16, map_tile_y * 16, 16, 16, col);
+                DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, col);
                 if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                     clickingMapX = map_tile_x;
                     clickingMapY = map_tile_y;
@@ -552,7 +613,7 @@ void StageWindow::Render() {
 
     ImGui::Begin("Entity List", NULL, ImGuiWindowFlags_NoFocusOnAppearing);
     {
-        if(ImGui::BeginListBox("EntityList", ImGui::GetContentRegionAvail())) {
+        if(ImGui::BeginListBox("##EntityList", ImGui::GetContentRegionAvail())) {
             for(int i = 0; i < pxe.Size(); i++) {
                 Entity e = pxe.GetEntity(i);
                 char text[120];
@@ -569,8 +630,8 @@ void StageWindow::Render() {
     int ts_mouse_x, ts_mouse_y, ts_tile_x, ts_tile_y; // Need to remember for status window
     ImGui::Begin("Tileset");
     {
-        ts_mouse_x = io.MousePos.x - ImGui::GetWindowPos().x - ImGui::GetCursorPos().x + ImGui::GetScrollX() - 2;
-        ts_mouse_y = io.MousePos.y - ImGui::GetWindowPos().y - ImGui::GetCursorPos().y + ImGui::GetScrollY() - 2;
+        ts_mouse_x = int(io.MousePos.x - ImGui::GetWindowPos().x - ImGui::GetCursorPos().x + ImGui::GetScrollX() - 2);
+        ts_mouse_y = int(io.MousePos.y - ImGui::GetWindowPos().y - ImGui::GetCursorPos().y + ImGui::GetScrollY() - 2);
         ts_tile_x = ts_mouse_x / (16 * map_zoom);
         ts_tile_y = ts_mouse_y / (16 * map_zoom);
         // Fix "negative zero"
@@ -609,7 +670,7 @@ void StageWindow::Render() {
                 }
                 if(ts_tile_x >= 0 && ts_tile_x < 16 && ts_tile_y >= 0 && ts_tile_y < tileset_height) {
                     glBindTexture(GL_TEXTURE_2D, white_tex);
-                    DrawRect(map_tile_x * 16, map_tile_y * 16, 16, 16, 0x77FFFFFF);
+                    DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, 0x77FFFFFF);
                     uint16_t thisTile = ts_tile_y * 16 + ts_tile_x;
                     if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) clickingTile = thisTile;
                     if(ImGui::IsMouseReleased(ImGuiMouseButton_Left) && clickingTile == thisTile)
@@ -801,4 +862,6 @@ void StageWindow::Render() {
         ImGui::Text("%s", pxa_fname.substr(subpos).c_str());
     }
     ImGui::End();
+
+    return menuExit;
 }

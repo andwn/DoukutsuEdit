@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        stageWindow->Render();
+        done = stageWindow->Render();
 
         // Rendering
         ImGui::Render();

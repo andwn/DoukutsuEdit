@@ -19,7 +19,7 @@ class StageWindow {
 public:
     StageWindow();
     ~StageWindow();
-    void Render();
+    bool Render();
 private:
     uint32_t white_tex;
     void SetDefaultFB();
@@ -40,14 +40,14 @@ private:
     PXE pxe;
     char tsc_text[TSC_MAX];
     uint32_t map_fb, map_tex;
-    float map_zoom;
+    int map_zoom;
     uint16_t lastMapW, lastMapH;
     int selectedEntity;
     uint16_t clickingMapX, clickingMapY;
     bool tsc_obfuscated;
     void CreateMapFB(int w, int h);
     void FreeMapFB();
-    void SetMapFB();
+    void SetMapFB() const;
     void OpenMap(std::string fname);
     void SaveMap();
 
@@ -62,7 +62,7 @@ private:
     uint16_t clickingTile, selectedTile;
     void CreateTilesetFB();
     void FreeTilesetFB();
-    void SetTilesetFB();
+    void SetTilesetFB() const;
     void OpenTileset(std::string fname);
     void SaveTileset();
 
