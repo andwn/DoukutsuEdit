@@ -1,6 +1,10 @@
 #ifndef STAGE9_PREFERENCES_H
 #define STAGE9_PREFERENCES_H
 
+enum {
+    EDIT_PENCIL, EDIT_ERASER, EDIT_ENTITY
+};
+
 class Preferences {
 public:
     static Preferences& Instance() {
@@ -17,8 +21,15 @@ public:
     void AddRecentPXM(std::string fn);
     void AddRecentTS(std::string fn);
 
-    bool autoPXE, autoTSC, autoPXA;
+    int backGraphic;
+    float backColor[4];
+    //bool autoPXE, autoTSC, autoPXA;
     std::string recentPXM[10], recentTS[10];
+    std::string npcListPath;
+    // Editor State
+    int editMode;
+    int mapZoom;
+    bool showGrid;
 
 private:
     Preferences();
