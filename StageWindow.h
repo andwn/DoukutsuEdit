@@ -45,7 +45,7 @@ private:
     uint32_t map_fb, map_tex;
     uint16_t lastMapW, lastMapH;
     int selectedEntity;
-    uint16_t clickingMapX, clickingMapY;
+    //uint16_t clickingMapX, clickingMapY;
     bool tsc_obfuscated;
     void CreateMapFB(int w, int h);
     void FreeMapFB();
@@ -61,7 +61,7 @@ private:
     uint32_t tileset_image;
     int tileset_width, tileset_height;
     uint8_t pxa[PXA_MAX];
-    uint16_t clickingTile, selectedTile;
+    uint16_t tileRange[4], selectedTile;
     void CreateTilesetFB();
     void FreeTilesetFB();
     void SetTilesetFB() const;

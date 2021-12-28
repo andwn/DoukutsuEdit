@@ -150,11 +150,12 @@ StageWindow::StageWindow() {
     //npc_fname = "";
     lastMapW = lastMapH = 0;
     map_fb = tileset_fb = 0;
-    clickingMapX = clickingMapY = 0;
     tileset_image = 0;
     tileset_width = tileset_height = 0;
     selectedEntity = -1;
-    clickingTile = selectedTile = 0;
+    selectedTile = 0;
+    tileRange[0] = tileRange[1] = 0;
+    tileRange[2] = tileRange[3] = 1;
     tsc_text[0] = 0;
     tsc_obfuscated = false;
     CreateTilesetFB();
@@ -457,6 +458,8 @@ void StageWindow::OpenTileset(std::string fname) {
     }
     // Try to open PXA with the same base name
     selectedTile = 0;
+    tileRange[0] = tileRange[1] = 0;
+    tileRange[2] = tileRange[3] = 1;
     std::string newfn = fname.substr(0, fname.find_last_of('.')) + ".pxa";
     size_t prt_loc = newfn.find("Prt");
     if(prt_loc != std::string::npos) newfn = newfn.erase(prt_loc, 3);
@@ -721,6 +724,8 @@ bool StageWindow::Render() {
         ImGui::Text("Unsaved changes will be lost. Are you sure?");
         if (ImGui::Button("Discard Changes")) {
             selectedTile = 0;
+            tileRange[0] = tileRange[1] = 0;
+            tileRange[2] = tileRange[3] = 1;
             tileset_image = 0;
             tileset_width = 0;
             tileset_height = 0;
@@ -779,7 +784,7 @@ bool StageWindow::Render() {
     ImGui::DockSpaceOverViewport();
 
     int map_mouse_x, map_mouse_y, map_tile_x, map_tile_y; // Need to remember for status window
-    ImGui::Begin("Map");
+    ImGui::Begin("Map", NULL, ImGuiWindowFlags_NoMove);
     {
         // Remake framebuffer if the map size changed
         int ww = pxm.Width() * 16;
@@ -828,24 +833,36 @@ bool StageWindow::Render() {
             }
             if(ImGui::IsWindowFocused() && map_tile_x >= 0 && map_tile_x < pxm.Width() && map_tile_y >= 0 && map_tile_y < pxm.Height()) {
                 glBindTexture(GL_TEXTURE_2D, white_tex);
-                uint32_t col = pref.editMode == EDIT_ERASER ? 0x99AAAAFF : 0x99FFCC77;
-                DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, col);
-                if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                    clickingMapX = map_tile_x;
-                    clickingMapY = map_tile_y;
-                }
-                if(ImGui::IsMouseReleased(ImGuiMouseButton_Left) && clickingMapX == map_tile_x && clickingMapY == map_tile_y) {
-                    switch(pref.editMode) {
-                        case EDIT_PENCIL: // Insert
-                            pxm.SetTile(map_tile_x, map_tile_y, selectedTile);
-                            break;
-                        case EDIT_ERASER: // Delete
+                switch(pref.editMode) {
+                    case EDIT_PENCIL: // Insert
+                        DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16,
+                                 tileRange[2] * 16, tileRange[3] * 16, 0x99FFCC77);
+                        if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                            for (int y = 0; y < tileRange[3]; y++) {
+                                for (int x = 0; x < tileRange[2]; x++) {
+                                    uint16_t xx = map_tile_x + x;
+                                    uint16_t yy = map_tile_y + y;
+                                    uint16_t tx = tileRange[0] + x;
+                                    uint16_t ty = tileRange[1] + y;
+                                    if (xx < pxm.Width() && yy < pxm.Height()) {
+                                        pxm.SetTile(xx, yy, ty * tileset_width + tx);
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    case EDIT_ERASER: // Delete
+                        DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, 0x997777FF);
+                        if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                             pxm.SetTile(map_tile_x, map_tile_y, 0);
-                            break;
-                        case EDIT_ENTITY: // Select Entity
+                        }
+                        break;
+                    case EDIT_ENTITY: // Select Entity
+                        DrawUnfilledRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, 0xFF00FF00);
+                        if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                             selectedEntity = pxe.FindEntity(map_tile_x, map_tile_y);
-                            break;
-                    }
+                        }
+                        break;
                 }
             }
             if(pref.showGrid) DrawGrid(pxm.Width(), pxm.Height());
@@ -856,7 +873,7 @@ bool StageWindow::Render() {
     }
     ImGui::End();
 
-    ImGui::Begin("Entity List", NULL, ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::Begin("Entity List", NULL, ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove);
     {
         if(ImGui::BeginListBox("##EntityList", ImGui::GetContentRegionAvail())) {
             for(int i = 0; i < pxe.Size(); i++) {
@@ -873,7 +890,7 @@ bool StageWindow::Render() {
     ImGui::End();
 
     int ts_mouse_x, ts_mouse_y, ts_tile_x, ts_tile_y; // Need to remember for status window
-    ImGui::Begin("Tileset");
+    ImGui::Begin("Tileset", NULL, ImGuiWindowFlags_NoMove);
     {
         ts_mouse_x = int(io.MousePos.x - ImGui::GetWindowPos().x - ImGui::GetCursorPos().x + ImGui::GetScrollX() - 2);
         ts_mouse_y = int(io.MousePos.y - ImGui::GetWindowPos().y - ImGui::GetCursorPos().y + ImGui::GetScrollY() - 2);
@@ -899,11 +916,6 @@ bool StageWindow::Render() {
                     DrawRectEx(float(x) * 16, float(y) * 16, 16, 16,
                                float(tx) / tileset_width, float(ty) / tileset_height,
                                1.0f / tileset_width, 1.0f / tileset_height, 0xFFFFFFFF);
-                    if(selectedTile == i) {
-                        glBindTexture(GL_TEXTURE_2D, white_tex);
-                        DrawUnfilledRect(float(x) * 16, float(y) * 16, 16, 16, 0xFFFFFFFF);
-                        glBindTexture(GL_TEXTURE_2D, tileset_image);
-                    }
                     // Width of texture and tileset window may differ, so need to iterate separately
                     if (++x == 16) {
                         x = 0;
@@ -916,13 +928,33 @@ bool StageWindow::Render() {
                 }
                 if(ts_tile_x >= 0 && ts_tile_x < 16 && ts_tile_y >= 0 && ts_tile_y < tileset_height) {
                     glBindTexture(GL_TEXTURE_2D, white_tex);
-                    DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, 0x99FFFFFF);
-                    uint16_t thisTile = ts_tile_y * 16 + ts_tile_x;
-                    if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) clickingTile = thisTile;
-                    if(ImGui::IsMouseReleased(ImGuiMouseButton_Left) && clickingTile == thisTile)
-                        selectedTile = thisTile;
+                    DrawRect(float(ts_tile_x) * 16, float(ts_tile_y) * 16, 16, 16, 0x99FFFFFF);
+                    if(ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                        tileRange[0] = ts_tile_x;
+                        tileRange[1] = ts_tile_y;
+                        tileRange[2] = 1;
+                        tileRange[3] = 1;
+                        selectedTile = ts_tile_y * 16 + ts_tile_x;
+                    }
+                    if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                        if(ts_tile_x >= tileRange[0] && ts_tile_y >= tileRange[1]) {
+                            tileRange[2] = 1 + ts_tile_x - tileRange[0];
+                            tileRange[3] = 1 + ts_tile_y - tileRange[1];
+                        } else {
+                            tileRange[0] = ts_tile_x;
+                            tileRange[1] = ts_tile_y;
+                            tileRange[2] = 1;
+                            tileRange[3] = 1;
+                            selectedTile = ts_tile_y * 16 + ts_tile_x;
+                        }
+                    }
                 }
             }
+            glBindTexture(GL_TEXTURE_2D, white_tex);
+            DrawUnfilledRect(float(tileRange[0]) * 16, float(tileRange[1]) * 16, 16, 16, 0xFF0000FF);
+            DrawUnfilledRect(float(tileRange[0]) * 16, float(tileRange[1]) * 16,
+                             float(tileRange[2]) * 16, float(tileRange[3]) * 16, 0xFF00FF00);
+            glBindTexture(GL_TEXTURE_2D, tileset_image);
             chkerr(__LINE__);
             if(pref.showGrid) DrawGrid(16, 8);
         }
@@ -982,7 +1014,7 @@ bool StageWindow::Render() {
     }
     ImGui::End();
 
-    ImGui::Begin("Entity", NULL, ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::Begin("Entity", NULL, ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove);
     {
         if(selectedEntity >= 0) {
             Entity e = pxe.GetEntity(selectedEntity);
@@ -1063,7 +1095,7 @@ bool StageWindow::Render() {
     }
     ImGui::End();
 
-    ImGui::Begin("Script", NULL, ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::Begin("Script", NULL, ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove);
     {
         if(tsc_text[0]) {
             ImGui::InputTextMultiline("##ScriptEdit", tsc_text, TSC_MAX, ImGui::GetContentRegionAvail());
@@ -1074,7 +1106,7 @@ bool StageWindow::Render() {
     ImGuiWindowClass winclass;
     winclass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_AutoHideTabBar;
     ImGui::SetNextWindowClass(&winclass);
-    ImGui::Begin("Status");
+    ImGui::Begin("Status", NULL, ImGuiWindowFlags_NoMove);
     {
         // PXM
         size_t subpos = pxm_fname.find_last_of('/');
