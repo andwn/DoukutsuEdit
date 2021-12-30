@@ -37,6 +37,7 @@ $(TARGET).app: $(TARGET)
 	install_name_tool -change $(SDL2_DYLIB) @executable_path/../Resources/libSDL2-2.0.0.dylib $(TARGET)
 	cp -f $(TARGET) $(APP)/Contents/MacOS/
 	cp -f $(SDL2_DYLIB) $(APP)/Contents/Resources/
+	cp -f imgui.ini $(APP)/Contents/Resources/
 	rm -rf macos/$(TARGET).iconset
 	mkdir -p macos/$(TARGET).iconset
 	sips -z 16 16   macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_16x16.png

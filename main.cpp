@@ -58,6 +58,14 @@ int main(int argc, char *argv[]) {
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
     ImGui::StyleColorsDark();
 
+#ifndef DEBUG
+    // Disallow INI editing in release mode, load a read-only ini from the base path
+    io.IniFilename = NULL;
+    char *basePath = SDL_GetBasePath();
+    ImGui::LoadIniSettingsFromDisk((std::string(basePath) + "imgui.ini").c_str());
+    SDL_free(basePath);
+#endif
+
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL3_Init(glsl_version);

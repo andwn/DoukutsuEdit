@@ -831,7 +831,12 @@ bool StageWindow::Render() {
                     if(selectedEntity == i) DrawUnfilledRect(float(e.x) * 16, float(e.y) * 16, 16, 16, 0xFF0000FF);
                 }
             }
-            if(ImGui::IsWindowFocused() && map_tile_x >= 0 && map_tile_x < pxm.Width() && map_tile_y >= 0 && map_tile_y < pxm.Height()) {
+            // Need to check not only that mouse is inside the map, but also the window
+            // Otherwise, when the map is wider than the window, clicking the tileset area will also click the map
+            ImVec2 wmin = ImGui::GetWindowPos();
+            ImVec2 wmax = ImVec2(wmin.x + ImGui::GetWindowWidth(), wmin.y + ImGui::GetWindowHeight());
+            if(ImGui::IsWindowFocused() && ImGui::IsMouseHoveringRect(wmin, wmax) &&
+                map_tile_x >= 0 && map_tile_x < pxm.Width() && map_tile_y >= 0 && map_tile_y < pxm.Height()) {
                 glBindTexture(GL_TEXTURE_2D, white_tex);
                 switch(pref.editMode) {
                     case EDIT_PENCIL: // Insert
