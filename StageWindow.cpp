@@ -153,6 +153,7 @@ StageWindow::StageWindow() {
     tileset_image = 0;
     tileset_width = tileset_height = 0;
     selectedEntity = -1;
+    newEntityX = newEntityY = 0;
     selectedTile = 0;
     tileRange[0] = tileRange[1] = 0;
     tileRange[2] = tileRange[3] = 1;
@@ -830,6 +831,10 @@ bool StageWindow::Render() {
                     DrawRect(float(e.x) * 16, float(e.y) * 16, 16, 16, 0x7700FF00);
                     if(selectedEntity == i) DrawUnfilledRect(float(e.x) * 16, float(e.y) * 16, 16, 16, 0xFF0000FF);
                 }
+                if(selectedEntity < 0) {
+                    // Selected tile with no entity
+                    DrawUnfilledRect(float(newEntityX) * 16, float(newEntityY) * 16, 16, 16, 0xFF0000FF);
+                }
             }
             // Need to check not only that mouse is inside the map, but also the window
             // Otherwise, when the map is wider than the window, clicking the tileset area will also click the map
@@ -865,6 +870,8 @@ bool StageWindow::Render() {
                     case EDIT_ENTITY: // Select Entity
                         DrawUnfilledRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, 0xFF00FF00);
                         if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                            newEntityX = map_tile_x;
+                            newEntityY = map_tile_y;
                             selectedEntity = pxe.FindEntity(map_tile_x, map_tile_y);
                         }
                         break;
@@ -1022,6 +1029,7 @@ bool StageWindow::Render() {
     ImGui::Begin("Entity", NULL, ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove);
     {
         if(selectedEntity >= 0) {
+            bool markForDelete = false;
             Entity e = pxe.GetEntity(selectedEntity);
             int x = e.x, y = e.y, id = e.id, ev = e.event, npc = e.type;
             ImGui::InputInt("X", &x, 1, 10);
@@ -1034,6 +1042,9 @@ bool StageWindow::Render() {
             e.id = std::clamp(id, 0, 9999);
             e.event = std::clamp(ev, 0, 9999);
             e.type = std::clamp(npc, 0, 361);
+            if(ImGui::Button("Delete entity")) {
+                markForDelete = true; // Defer deletion until the other widgets are drawn
+            }
             if(ImGui::CollapsingHeader("Entity Flags")) {
                 bool flags[16];
                 for(int i = 0; i < 16; i++) {
@@ -1094,8 +1105,19 @@ bool StageWindow::Render() {
                     ImGui::Text("%s", tsc_cut);
                 }
             }
+            if(markForDelete) {
+                newEntityX = e.x;
+                newEntityY = e.y;
+                pxe.DeleteEntity(selectedEntity);
+                selectedEntity = -1;
+            }
         } else {
             ImGui::Text("No entity selected.");
+            if(ImGui::Button("Create entity here")) {
+                Entity e = { newEntityX, newEntityY, 0, 0, 0, 0 };
+                pxe.AddEntity(e);
+                selectedEntity = pxe.Size() - 1;
+            }
         }
     }
     ImGui::End();

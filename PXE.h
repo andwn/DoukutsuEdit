@@ -19,6 +19,7 @@ public:
     void SetEntity(uint16_t i, Entity e);
     void Resize(uint16_t _size);
     void AddEntity(Entity e);
+    void DeleteEntity(uint16_t index);
     void Clear();
     void Load(FILE *file);
     void Save(FILE *file);

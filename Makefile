@@ -25,7 +25,7 @@ OBJS += $(CPPS:.cpp=.o)
 
 all: release
 
-release: OPTS += -Os
+release: OPTS += -O2
 release: $(APP)
 
 debug: OPTS += -Og -g -DDEBUG
@@ -40,16 +40,8 @@ $(TARGET).app: $(TARGET)
 	cp -f imgui.ini $(APP)/Contents/Resources/
 	rm -rf macos/$(TARGET).iconset
 	mkdir -p macos/$(TARGET).iconset
-	sips -z 16 16   macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_16x16.png
-	sips -z 32 32   macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_16x16@2x.png
-	sips -z 32 32   macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_32x32.png
-	sips -z 64 64   macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_32x32@2x.png
 	sips -z 128 128 macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_128x128.png
-	sips -z 256 256 macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_128x128@2x.png
 	sips -z 256 256 macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_256x256.png
-	sips -z 512 512 macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_256x256@2x.png
-	sips -z 512 512 macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_512x512.png
-	sips -z 1024 1024 macos/$(TARGET).png --out macos/$(TARGET).iconset/icon_512x512@2x.png
 	iconutil --convert icns macos/$(TARGET).iconset
 	cp -f macos/$(TARGET).icns $(APP)/Contents/Resources/
 

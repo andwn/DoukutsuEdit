@@ -16,7 +16,7 @@ void PXE::SetEntity(uint16_t i, Entity e) {
 void PXE::Resize(uint16_t _size) {
     Entity *temp = (Entity*) calloc(_size, sizeof(Entity));
     if(entities) {
-        memcpy(temp, entities, min(size, _size));
+        memcpy(temp, entities, min(size, _size) * sizeof(Entity));
         free(entities);
     }
     entities = temp;
@@ -26,6 +26,11 @@ void PXE::Resize(uint16_t _size) {
 void PXE::AddEntity(Entity e) {
     Resize(size + 1);
     memcpy(&entities[size - 1], &e, sizeof(Entity));
+}
+
+void PXE::DeleteEntity(uint16_t index) {
+    for(uint16_t i = index; i < size - 1; i++) entities[i] = entities[i+1];
+    Resize(size - 1);
 }
 
 void PXE::Clear() {
