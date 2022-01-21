@@ -147,7 +147,6 @@ StageWindow::StageWindow() {
     tsc_fname = "untitled.tsc";
     tileset_fname = "untitled.png";
     pxa_fname = "untitled.pxa";
-    //npc_fname = "";
     lastMapW = lastMapH = 0;
     map_fb = tileset_fb = 0;
     tileset_image = 0;
@@ -358,6 +357,7 @@ void StageWindow::FreeTexture(uint32_t tex) {
 }
 
 void StageWindow::OpenMap(std::string fname) {
+    history.Clear();
     FILE *file = fopen(fname.c_str(), "rb");
     if(file) {
         pxm_fname = fname;
@@ -380,18 +380,25 @@ void StageWindow::OpenMap(std::string fname) {
     std::string tscfn = fname.substr(0, fname.find_last_of('.')) + ".tsc";
     std::string txtfn = fname.substr(0, fname.find_last_of('.')) + ".txt";
     file = fopen(tscfn.c_str(), "rb");
-    if(file) tsc_fname = tscfn;
-    else file = fopen(txtfn.c_str(), "rb");
-    if(file) tsc_fname = txtfn;
-    else {
-        size_t dirpos = tscfn.find("/Stage/");
-        if(dirpos != std::string::npos) {
-            std::string tscfn2 = tscfn.replace(dirpos, 7, "/tsc/");
-            std::string txtfn2 = txtfn.replace(dirpos, 7, "/tsc/");
-            file = fopen(tscfn2.c_str(), "rb");
-            if(file) tsc_fname = tscfn2;
-            else file = fopen(txtfn2.c_str(), "rb");
-            if(file) tsc_fname = txtfn2;
+    if(file) {
+        tsc_fname = tscfn;
+    } else {
+        file = fopen(txtfn.c_str(), "rb");
+        if(file) {
+            tsc_fname = txtfn;
+        } else {
+            size_t dirpos = tscfn.find("/Stage/");
+            if(dirpos != std::string::npos) {
+                std::string tscfn2 = tscfn.replace(dirpos, 7, "/tsc/");
+                std::string txtfn2 = txtfn.replace(dirpos, 7, "/tsc/");
+                file = fopen(tscfn2.c_str(), "rb");
+                if(file) {
+                    tsc_fname = tscfn2;
+                } else {
+                    file = fopen(txtfn2.c_str(), "rb");
+                    if(file) tsc_fname = txtfn2;
+                }
+            }
         }
     }
     if(file) {
@@ -448,6 +455,7 @@ void StageWindow::SaveScript() {
 }
 
 void StageWindow::OpenTileset(std::string fname) {
+    history.Clear();
     tileset_fname = "";
     if(tileset_image) FreeTexture(tileset_image);
     tileset_image = LoadTexture(fname.c_str(), &tileset_width, &tileset_height, true);
@@ -659,13 +667,13 @@ bool StageWindow::Render() {
             }
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("Edit")) {
-            ImGui::Separator();
-            ImGui::RadioButton("Insert Mode", &pref.editMode, EDIT_PENCIL);
-            ImGui::RadioButton("Erase Mode", &pref.editMode, EDIT_ERASER);
-            ImGui::RadioButton("Entity Mode", &pref.editMode, EDIT_ENTITY);
-            ImGui::EndMenu();
-        }
+        //if (ImGui::BeginMenu("Edit")) {
+        //    ImGui::Separator();
+        //    ImGui::RadioButton("Insert Mode", &pref.editMode, EDIT_PENCIL);
+        //    ImGui::RadioButton("Erase Mode", &pref.editMode, EDIT_ERASER);
+        //    ImGui::RadioButton("Entity Mode", &pref.editMode, EDIT_ENTITY);
+        //    ImGui::EndMenu();
+        //}
         if (ImGui::BeginMenu("View")) {
             ImGui::Checkbox("Show Grid", &pref.showGrid);
             ImGui::Separator();
@@ -683,6 +691,7 @@ bool StageWindow::Render() {
     if (ImGui::BeginPopup("New Map")) {
         ImGui::Text("Unsaved changes will be lost. Are you sure?");
         if (ImGui::Button("Discard Changes")) {
+            history.Clear();
             selectedEntity = -1;
             pxm_fname = "untitled.pxm";
             pxe_fname = "untitled.pxe";
@@ -724,6 +733,7 @@ bool StageWindow::Render() {
     if (ImGui::BeginPopup("New Tileset")) {
         ImGui::Text("Unsaved changes will be lost. Are you sure?");
         if (ImGui::Button("Discard Changes")) {
+            history.Clear();
             selectedTile = 0;
             tileRange[0] = tileRange[1] = 0;
             tileRange[2] = tileRange[3] = 1;
@@ -848,23 +858,30 @@ bool StageWindow::Render() {
                         DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16,
                                  tileRange[2] * 16, tileRange[3] * 16, 0x99FFCC77);
                         if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                            // Store undo entry
+                            HistEntry *e = (HistEntry*) malloc(sizeof(HistEntry));
+                            e->action = MAP_MOD;
+                            e->map_mod.x = map_tile_x;
+                            e->map_mod.y = map_tile_y;
+                            e->map_mod.w = tileRange[2];
+                            e->map_mod.h = tileRange[3];
+                            e->map_mod.tx = tileRange[0];
+                            e->map_mod.ty = tileRange[1];
+                            e->map_mod.old_data = (uint16_t*) malloc(tileRange[2] * tileRange[3] * sizeof(uint16_t));
+                            // Place rect of tiles
                             for (int y = 0; y < tileRange[3]; y++) {
                                 for (int x = 0; x < tileRange[2]; x++) {
                                     uint16_t xx = map_tile_x + x;
                                     uint16_t yy = map_tile_y + y;
                                     uint16_t tx = tileRange[0] + x;
                                     uint16_t ty = tileRange[1] + y;
+                                    e->map_mod.old_data[y * tileRange[2] + x] = pxm.Tile(xx, yy);
                                     if (xx < pxm.Width() && yy < pxm.Height()) {
                                         pxm.SetTile(xx, yy, ty * tileset_width + tx);
                                     }
                                 }
                             }
-                        }
-                        break;
-                    case EDIT_ERASER: // Delete
-                        DrawRect(float(map_tile_x) * 16, float(map_tile_y) * 16, 16, 16, 0x997777FF);
-                        if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                            pxm.SetTile(map_tile_x, map_tile_y, 0);
+                            history.AddEntry(e);
                         }
                         break;
                     case EDIT_ENTITY: // Select Entity
@@ -904,6 +921,7 @@ bool StageWindow::Render() {
     int ts_mouse_x, ts_mouse_y, ts_tile_x, ts_tile_y; // Need to remember for status window
     ImGui::Begin("Tileset", NULL, ImGuiWindowFlags_NoMove);
     {
+        if(ImGui::IsWindowFocused()) pref.editMode = EDIT_PENCIL;
         ts_mouse_x = int(io.MousePos.x - ImGui::GetWindowPos().x - ImGui::GetCursorPos().x + ImGui::GetScrollX() - 2);
         ts_mouse_y = int(io.MousePos.y - ImGui::GetWindowPos().y - ImGui::GetCursorPos().y + ImGui::GetScrollY() - 2);
         ts_tile_x = ts_mouse_x / 32;
@@ -972,6 +990,21 @@ bool StageWindow::Render() {
         }
         SetDefaultFB();
         ImGui::Image((ImTextureID) tileset_tex, ImVec2(512, 256), ImVec2(0, 1), ImVec2(1, 0));
+
+        if(ImGui::CollapsingHeader("Map Dimensions")) {
+            int map_w = pxm.Width();
+            int map_h = pxm.Height();
+            ImGui::InputInt("Width", &map_w, 1, 10);
+            ImGui::InputInt("Height", &map_h, 1, 10);
+            if(map_w < 20) map_w = 20;
+            if(map_h < 15) map_h = 15;
+            if(map_w > 255) map_w = 255;
+            if(map_h > 255) map_h = 255;
+            if(map_w != pxm.Width() || map_h != pxm.Height()) {
+                pxm.Resize(map_w, map_h);
+            }
+        }
+
         // Tile attributes
         if(ImGui::CollapsingHeader("Tile Attributes")) {
             uint8_t attr = pxa[selectedTile];
@@ -1028,9 +1061,11 @@ bool StageWindow::Render() {
 
     ImGui::Begin("Entity", NULL, ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove);
     {
+        if(ImGui::IsWindowFocused()) pref.editMode = EDIT_ENTITY;
         if(selectedEntity >= 0) {
             bool markForDelete = false;
             Entity e = pxe.GetEntity(selectedEntity);
+            Entity old_e = e;
             int x = e.x, y = e.y, id = e.id, ev = e.event, npc = e.type;
             ImGui::InputInt("X", &x, 1, 10);
             ImGui::InputInt("Y", &y, 1, 10);
@@ -1106,10 +1141,24 @@ bool StageWindow::Render() {
                 }
             }
             if(markForDelete) {
+                // Store in undo list
+                HistEntry *entry = (HistEntry*) malloc(sizeof(HistEntry));
+                entry->action = ENTITY_DEL;
+                memcpy(&entry->entity_del.old_entity, &old_e, sizeof(Entity));
+                entry->entity_del.index = selectedEntity;
+                history.AddEntry(entry);
+                // Delete entity
                 newEntityX = e.x;
                 newEntityY = e.y;
                 pxe.DeleteEntity(selectedEntity);
                 selectedEntity = -1;
+            } else if(memcmp(&e, &old_e, sizeof(Entity)) != 0) {
+                // Entity was modified, store in undo list
+                HistEntry *entry = (HistEntry*) malloc(sizeof(HistEntry));
+                entry->action = ENTITY_MOD;
+                memcpy(&entry->entity_mod.old_entity, &old_e, sizeof(Entity));
+                memcpy(&entry->entity_mod.new_entity, &e, sizeof(Entity));
+                history.AddEntry(entry);
             }
         } else {
             ImGui::Text("No entity selected.");
@@ -1117,6 +1166,11 @@ bool StageWindow::Render() {
                 Entity e = { newEntityX, newEntityY, 0, 0, 0, 0 };
                 pxe.AddEntity(e);
                 selectedEntity = pxe.Size() - 1;
+                // Store in undo list
+                HistEntry *entry = (HistEntry*) malloc(sizeof(HistEntry));
+                entry->action = ENTITY_ADD;
+                memcpy(&entry->entity_add.new_entity, &e, sizeof(Entity));
+                history.AddEntry(entry);
             }
         }
     }

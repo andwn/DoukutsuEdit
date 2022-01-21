@@ -3,6 +3,7 @@
 
 #include "pxm.h"
 #include "PXE.h"
+#include "History.h"
 
 #define PXA_MAX 256
 #define TSC_MAX 0x8000
@@ -23,7 +24,9 @@ public:
     StageWindow();
     ~StageWindow();
     bool Render();
+
 private:
+    History history;
     uint32_t white_tex;
     uint32_t back_tex;
     void SetDefaultFB();
@@ -69,7 +72,6 @@ private:
     void SaveTileset();
 
     // NPC List
-    //std::string npc_fname;
     std::vector<NpcSprite> npc_sprites;
     void LoadNpcList(std::string fname);
 
